@@ -24,7 +24,7 @@ function getCoitoTier(streak) {
 }
 
 function getEntrenoTier(streak) {
-  if (streak <= 3) return 'Enquelnque';
+  if (streak <= 3) return 'Debilucho';
   if (streak <= 10) return 'Medio fuerte';
   return 'Goku';
 }
