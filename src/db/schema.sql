@@ -79,6 +79,26 @@ CREATE TABLE IF NOT EXISTS user_ranks (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS user_streaks (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  activity_type VARCHAR(16) NOT NULL CHECK (activity_type IN ('coito', 'entreno')),
+  current_streak INTEGER NOT NULL DEFAULT 0,
+  longest_streak INTEGER NOT NULL DEFAULT 0,
+  last_log_date DATE,
+  total_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, activity_type)
+);
+
+CREATE TABLE IF NOT EXISTS user_daily_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  activity_type VARCHAR(16) NOT NULL CHECK (activity_type IN ('coito', 'entreno')),
+  log_date DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, activity_type, log_date)
+);
+
 CREATE INDEX IF NOT EXISTS idx_pins_location ON pins(lat, lng);
 CREATE INDEX IF NOT EXISTS idx_pins_user ON pins(user_id);
 CREATE INDEX IF NOT EXISTS idx_pins_place ON pins(google_place_id);
@@ -89,3 +109,5 @@ CREATE INDEX IF NOT EXISTS idx_relations_requester ON user_relations(requester_i
 CREATE INDEX IF NOT EXISTS idx_relations_addressee ON user_relations(addressee_id);
 CREATE INDEX IF NOT EXISTS idx_ranks_score ON user_ranks(total_score DESC);
 CREATE INDEX IF NOT EXISTS idx_ranks_position ON user_ranks(rank_position);
+CREATE INDEX IF NOT EXISTS idx_streaks_type_streak ON user_streaks(activity_type, current_streak DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_logs_user_date ON user_daily_logs(user_id, log_date DESC);

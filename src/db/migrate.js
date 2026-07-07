@@ -42,6 +42,14 @@ async function migrate() {
       ON comments (pin_id, user_id) WHERE rating IS NOT NULL
   `);
 
+  await pool.query(`
+    INSERT INTO user_streaks (user_id, activity_type)
+    SELECT u.id, t.type
+    FROM users u
+    CROSS JOIN (VALUES ('coito'), ('entreno')) AS t(type)
+    ON CONFLICT DO NOTHING
+  `);
+
   console.log('Esquema de base de datos aplicado');
 }
 

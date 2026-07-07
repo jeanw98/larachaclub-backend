@@ -62,6 +62,11 @@ router.post('/register', async (req, res, next) => {
       [user.id]
     );
 
+    await pool.query(
+      `INSERT INTO user_streaks (user_id, activity_type) VALUES ($1, 'coito'), ($1, 'entreno') ON CONFLICT DO NOTHING`,
+      [user.id]
+    );
+
     res.status(201).json({ user: publicUser(user), access_token, refresh_token });
   } catch (err) {
     next(err);
