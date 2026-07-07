@@ -151,11 +151,12 @@ async function getStreakLeaderboard(activityType, today = formatDate(new Date())
             s.current_streak, s.longest_streak, s.total_count, s.last_log_date
      FROM user_streaks s
      JOIN users u ON u.id = s.user_id
-     WHERE s.activity_type = $1
-       AND s.last_log_date IS NOT NULL
-       AND s.last_log_date >= $2::date
+     WHERE s.activity_type = $1 AND s.total_count > 0
      ORDER BY
-       CASE WHEN s.last_log_date >= $2::date THEN s.current_streak ELSE 0 END DESC,
+       CASE
+         WHEN s.last_log_date >= $2::date THEN s.current_streak
+         ELSE 0
+       END DESC,
        s.longest_streak DESC,
        s.total_count DESC,
        u.nickname ASC
@@ -174,6 +175,7 @@ async function getStreakLeaderboard(activityType, today = formatDate(new Date())
       total_days: row.total_count,
       tier: getTier(activityType, streak),
       rank_position: i + 1,
+      on_streak: streak > 0,
     };
   });
 }
