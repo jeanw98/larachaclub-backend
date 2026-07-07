@@ -8,7 +8,7 @@ const router = express.Router();
 router.get('/', optionalAuth, async (_req, res, next) => {
   try {
     const { rows } = await pool.query(`
-      SELECT p.id, p.user_id, p.caption, p.place_name, p.formatted_address, p.created_at,
+      SELECT p.id, p.user_id, p.lat, p.lng, p.caption, p.place_name, p.formatted_address, p.created_at,
         i.s3_key, i.media_type, i.duration_seconds, u.nickname, u.avatar_color
       FROM pins p
       JOIN images i ON i.id = p.image_id
@@ -33,6 +33,8 @@ router.get('/', optionalAuth, async (_req, res, next) => {
       const signedUrl = urlMap[row.s3_key];
       grouped.get(row.user_id).items.push({
         id: row.id,
+        lat: parseFloat(row.lat),
+        lng: parseFloat(row.lng),
         image_url: signedUrl,
         media_url: signedUrl,
         media_type: row.media_type || 'image',

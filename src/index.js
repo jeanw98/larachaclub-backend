@@ -8,6 +8,7 @@ const pinRoutes = require('./routes/pins');
 const userRoutes = require('./routes/users');
 const relationRoutes = require('./routes/relations');
 const storyRoutes = require('./routes/stories');
+const notificationRoutes = require('./routes/notifications');
 const config = require('./config/env');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/pins', pinRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/relations', relationRoutes);
 app.use('/api/stories', storyRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/heatmap', async (req, res, next) => {
   try {

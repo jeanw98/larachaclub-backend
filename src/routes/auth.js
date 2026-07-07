@@ -141,4 +141,32 @@ router.get('/me', authenticate, async (req, res, next) => {
   }
 });
 
+router.patch('/me', authenticate, async (req, res, next) => {
+  try {
+    const nickname = req.body.nickname?.trim();
+    if (!nickname || nickname.length < 2) {
+      return res.status(400).json({ error: 'El apodo debe tener al menos 2 caracteres' });
+    }
+    if (nickname.length > 32) {
+      return res.status(400).json({ error: 'El apodo no puede tener más de 32 caracteres' });
+    }
+
+    const { rows: taken } = await pool.query(
+      'SELECT id FROM users WHERE nickname = $1 AND id != $2',
+      [nickname, req.userId]
+    );
+    if (taken.length) return res.status(409).json({ error: 'Ese apodo ya está en uso' });
+
+    const { rows } = await pool.query(
+      'UPDATE users SET nickname = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [nickname, req.userId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    res.json(publicUser(rows[0]));
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
