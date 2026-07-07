@@ -1,0 +1,7 @@
+node_modules/
+uploads/
+amici.db
+amici.db-wal
+amici.db-shm
+.env
+.DS_Store
