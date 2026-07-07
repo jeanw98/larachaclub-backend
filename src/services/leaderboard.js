@@ -28,8 +28,14 @@ async function recomputeUserRank(userId) {
       GROUP BY p.user_id
     ) r ON r.user_id = u.id
     LEFT JOIN (
-      SELECT p.user_id, SUM(c.rating) AS rating_score
-      FROM comments c JOIN pins p ON c.pin_id = p.id
+      SELECT p.user_id, SUM(rated.rating) AS rating_score
+      FROM (
+        SELECT c.pin_id, c.user_id AS rater_id, MAX(c.rating) AS rating
+        FROM comments c
+        WHERE c.rating IS NOT NULL
+        GROUP BY c.pin_id, c.user_id
+      ) rated
+      JOIN pins p ON p.id = rated.pin_id
       GROUP BY p.user_id
     ) c ON c.user_id = u.id
     WHERE u.id = $1

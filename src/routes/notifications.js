@@ -56,7 +56,7 @@ router.get('/', authenticate, async (req, res, next) => {
       )
       ORDER BY created_at DESC
       LIMIT 50
-    `, [req.user.id]);
+    `, [req.userId]);
 
     res.json(rows.map((row) => ({
       id: row.id,

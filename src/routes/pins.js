@@ -21,11 +21,20 @@ const upload = multer({
 });
 
 async function enrichPin(pin, userId = null) {
-  const [reactions, comments, userReaction, signedUrl] = await Promise.all([
+  const [reactions, comments, userReaction, userRating, signedUrl] = await Promise.all([
     pool.query('SELECT type, COUNT(*)::int AS count FROM reactions WHERE pin_id = $1 GROUP BY type', [pin.id]),
-    pool.query('SELECT COUNT(*)::int AS count, AVG(rating) AS avg_rating FROM comments WHERE pin_id = $1', [pin.id]),
+    pool.query(`
+      SELECT COUNT(*)::int AS count, AVG(rating) AS avg_rating
+      FROM comments WHERE pin_id = $1 AND rating IS NOT NULL
+    `, [pin.id]),
     userId
       ? pool.query('SELECT type FROM reactions WHERE pin_id = $1 AND user_id = $2', [pin.id, userId])
+      : Promise.resolve({ rows: [] }),
+    userId
+      ? pool.query(
+        'SELECT rating FROM comments WHERE pin_id = $1 AND user_id = $2 AND rating IS NOT NULL LIMIT 1',
+        [pin.id, userId]
+      )
       : Promise.resolve({ rows: [] }),
     signKey(pin.s3_key),
   ]);
@@ -56,6 +65,10 @@ async function enrichPin(pin, userId = null) {
       ? Math.round(parseFloat(comments.rows[0].avg_rating) * 10) / 10
       : null,
     user_reaction: userReaction.rows[0]?.type || null,
+    user_has_rated: !!userRating.rows[0],
+    user_rating: userRating.rows[0]?.rating != null
+      ? parseInt(userRating.rows[0].rating, 10)
+      : null,
   };
 }
 
@@ -211,11 +224,26 @@ router.post('/:id/comments', authenticate, async (req, res, next) => {
 
     const { text, rating } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: 'El comentario es obligatorio' });
-    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'La calificación debe ser de 1 a 5' });
+
+    const hasRating = rating != null && rating !== '';
+    let ratingValue = null;
+    if (hasRating) {
+      ratingValue = parseInt(rating, 10);
+      if (!ratingValue || ratingValue < 1 || ratingValue > 5) {
+        return res.status(400).json({ error: 'La calificación debe ser de 1 a 5' });
+      }
+      const existing = await pool.query(
+        'SELECT id FROM comments WHERE pin_id = $1 AND user_id = $2 AND rating IS NOT NULL',
+        [req.params.id, req.userId]
+      );
+      if (existing.rows.length) {
+        return res.status(409).json({ error: 'Ya calificaste esta publicación' });
+      }
+    }
 
     const { rows } = await pool.query(
       `INSERT INTO comments (pin_id, user_id, text, rating) VALUES ($1, $2, $3, $4) RETURNING id`,
-      [req.params.id, req.userId, text.trim(), rating]
+      [req.params.id, req.userId, text.trim(), ratingValue]
     );
 
     const { rows: comment } = await pool.query(`
