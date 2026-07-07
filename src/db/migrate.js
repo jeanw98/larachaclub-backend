@@ -50,6 +50,23 @@ async function migrate() {
     ON CONFLICT DO NOTHING
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS epic_moments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      center_lat DOUBLE PRECISION NOT NULL,
+      center_lng DOUBLE PRECISION NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE pins ADD COLUMN IF NOT EXISTS is_permanent BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE pins ADD COLUMN IF NOT EXISTS epic_moment_id UUID REFERENCES epic_moments(id) ON DELETE SET NULL;
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_pins_created ON pins(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_pins_permanent ON pins(is_permanent);
+    CREATE INDEX IF NOT EXISTS idx_pins_epic ON pins(epic_moment_id);
+  `).catch(() => {});
+
   console.log('Esquema de base de datos aplicado');
 }
 

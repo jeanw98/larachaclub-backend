@@ -26,6 +26,13 @@ CREATE TABLE IF NOT EXISTS images (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS epic_moments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_lat DOUBLE PRECISION NOT NULL,
+  center_lng DOUBLE PRECISION NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS pins (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -36,6 +43,8 @@ CREATE TABLE IF NOT EXISTS pins (
   place_name VARCHAR(255),
   formatted_address TEXT,
   caption TEXT DEFAULT '',
+  is_permanent BOOLEAN NOT NULL DEFAULT false,
+  epic_moment_id UUID REFERENCES epic_moments(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

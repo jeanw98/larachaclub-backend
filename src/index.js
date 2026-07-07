@@ -10,6 +10,7 @@ const relationRoutes = require('./routes/relations');
 const storyRoutes = require('./routes/stories');
 const notificationRoutes = require('./routes/notifications');
 const streakRoutes = require('./routes/streaks');
+const { PIN_VISIBLE_WHERE } = require('./services/pinVisibility');
 const config = require('./config/env');
 
 const app = express();
@@ -35,7 +36,7 @@ app.get('/api/heatmap', async (req, res, next) => {
     const validReactions = ['funny', 'awful', 'scare', 'love', 'wow', 'meh'];
 
     if (mode === 'density') {
-      const { rows } = await pool.query('SELECT lat, lng FROM pins');
+      const { rows } = await pool.query(`SELECT p.lat, p.lng FROM pins p WHERE ${PIN_VISIBLE_WHERE}`);
       return res.json({ mode, points: rows.map((p) => [parseFloat(p.lat), parseFloat(p.lng), 1]) });
     }
     if (!validReactions.includes(mode)) return res.status(400).json({ error: 'Invalid heatmap mode' });
@@ -43,6 +44,7 @@ app.get('/api/heatmap', async (req, res, next) => {
     const { rows } = await pool.query(`
       SELECT p.lat, p.lng, COUNT(r.id)::int AS intensity
       FROM pins p JOIN reactions r ON r.pin_id = p.id AND r.type = $1
+      WHERE ${PIN_VISIBLE_WHERE}
       GROUP BY p.id, p.lat, p.lng
     `, [mode]);
     res.json({ mode, points: rows.map((p) => [parseFloat(p.lat), parseFloat(p.lng), Math.min(p.intensity, 5)]) });

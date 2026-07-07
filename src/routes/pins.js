@@ -7,6 +7,8 @@ const { validateMediaLocation } = require('../services/mediaValidation');
 const { signKey } = require('../services/s3');
 const { reverseGeocode } = require('../services/google');
 const { recomputeUserRank, recomputePinOwner } = require('../services/leaderboard');
+const { PIN_VISIBLE_WHERE, pinVisibilityFields, isPinVisible } = require('../services/pinVisibility');
+const { promoteEpicMomentIfEligible } = require('../services/epicMoments');
 
 const router = express.Router();
 const MAX_VIDEO_SECONDS = 30;
@@ -69,6 +71,7 @@ async function enrichPin(pin, userId = null) {
     user_rating: userRating.rows[0]?.rating != null
       ? parseInt(userRating.rows[0].rating, 10)
       : null,
+    ...pinVisibilityFields(pin),
   };
 }
 
@@ -82,7 +85,9 @@ const PIN_SELECT = `
 
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
-    const { rows } = await pool.query(`${PIN_SELECT} ORDER BY p.created_at DESC`);
+    const { rows } = await pool.query(
+      `${PIN_SELECT} WHERE ${PIN_VISIBLE_WHERE} ORDER BY p.created_at DESC`,
+    );
     const enriched = await Promise.all(rows.map((p) => enrichPin(p, req.userId)));
     res.json(enriched);
   } catch (err) {
@@ -96,7 +101,7 @@ router.get('/heatmap', async (req, res, next) => {
     const validReactions = ['funny', 'awful', 'scare', 'love', 'wow', 'meh'];
 
     if (mode === 'density') {
-      const { rows } = await pool.query('SELECT lat, lng FROM pins');
+      const { rows } = await pool.query(`SELECT p.lat, p.lng FROM pins p WHERE ${PIN_VISIBLE_WHERE}`);
       return res.json({ mode, points: rows.map((p) => [parseFloat(p.lat), parseFloat(p.lng), 1]) });
     }
 
@@ -108,6 +113,7 @@ router.get('/heatmap', async (req, res, next) => {
       SELECT p.lat, p.lng, COUNT(r.id)::int AS intensity
       FROM pins p
       JOIN reactions r ON r.pin_id = p.id AND r.type = $1
+      WHERE ${PIN_VISIBLE_WHERE}
       GROUP BY p.id, p.lat, p.lng
     `, [mode]);
 
@@ -124,6 +130,7 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
     const { rows } = await pool.query(`${PIN_SELECT} WHERE p.id = $1`, [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Pin no encontrado' });
+    if (!isPinVisible(rows[0])) return res.status(404).json({ error: 'Pin no encontrado' });
 
     const pin = await enrichPin(rows[0], req.userId);
 
@@ -200,6 +207,8 @@ router.post('/', authenticate, upload.single('photo'), async (req, res, next) =>
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [req.userId, imgRows[0].id, lat, lng, google_place_id || null, place_name || null, formatted_address || null, caption || '']
       );
+
+      await promoteEpicMomentIfEligible(client, pinRows[0]);
 
       await client.query('COMMIT');
 
